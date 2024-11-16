@@ -5,9 +5,17 @@ const path = require('path');
 
 const app = express();
 
-// Claude API setup
+// API key'i hem config hem env'den okuyalım
+let apiKey;
+try {
+    const config = require('./config');
+    apiKey = config.CLAUDE_API_KEY;
+} catch (error) {
+    apiKey = process.env.CLAUDE_API_KEY;
+}
+
 const anthropic = new Anthropic({
-    apiKey: process.env.CLAUDE_API_KEY
+    apiKey: apiKey
 });
 
 // Test message to verify API
