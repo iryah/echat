@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <title>English Practice with AI</title>
+   <style>
+       body {
+           font-family: Arial, sans-serif;
+           max-width: 800px;
+           margin: 20px auto;
+           padding: 20px;
+           background-color: #f0f2f5;
+       }
+       .container {
+           background: white;
+           padding: 20px;
+           border-radius: 10px;
+           box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+       }
+       .header {
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           margin-bottom: 20px;
+       }
+       .controls {
+           display: flex;
+           gap: 10px;
+           margin-bottom: 20px;
+           flex-wrap: wrap;
+       }
+       .stats {
+           display: flex;
+           gap: 20px;
+           margin: 10px 0;
+           padding: 10px;
+           background: #e3f2fd;
+           border-radius: 5px;
+       }
+       .stats > div {
+           font-weight: bold;
+       }
+       .chat {
+           height: 400px;
+           overflow-y: auto;
+           border: 1px solid #ddd;
+           padding: 15px;
+           margin: 15px 0;
+           border-radius: 5px;
+           background: #fff;
+       }
+       .message {
+           margin: 10px 0;
+           padding: 10px;
+           border-radius: 5px;
+           max-width: 80%;
+           line-height: 1.5;
+       }
+       .user-message {
+           background: #e3f2fd;
+           margin-left: auto;
+       }
+       .ai-message {
+           background: #f5f5f5;
+           margin-right: auto;
+       }
+       .example-response {
+           border-top: 1px solid #ddd;
+           margin-top: 10px;
+           padding-top: 10px;
+           color: #1a73e8;
+           font-style: italic;
+       }
+       .new-word {
+           color: #2196F3;
+           font-weight: bold;
+           cursor: pointer;
+       }
+       .examples {
+           background: #f8f9fa;
+           padding: 10px;
+           border-radius: 5px;
+           margin: 10px 0;
+       }
+       .example-phrase {
+           display: inline-block;
+           background: #e9ecef;
+           padding: 5px 10px;
+           margin: 5px;
+           border-radius: 15px;
+           cursor: pointer;
+           transition: background 0.2s;
+       }
+       .example-phrase:hover {
+           background: #dee2e6;
+       }
+       .voice-controls {
+           display: flex;
+           gap: 10px;
+           margin: 10px 0;
+           align-items: center;
+       }
+       .pronunciation {
+           color: #666;
+           font-style: italic;
+           margin-left: 10px;
+       }
+       .speak-button {
+           background: #4CAF50;
+           color: white;
+           border: none;
+           border-radius: 50%;
+           width: 36px;
+           height: 36px;
+           display: flex;
+           align-items: center;
+           justify-content: center;
+           cursor: pointer;
+           font-size: 18px;
+           transition: background 0.3s;
+       }
+       .speak-button:hover {
+           background: #45a049;
+       }
+       select, input, button {
+           padding: 10px;
+           border: 1px solid #ddd;
+           border-radius: 5px;
+           font-size: 14px;
+       }
+       select {
+           width: 200px;
+       }
+       .main-button {
+           background: #1a73e8;
+           color: white;
+           border: none;
+           cursor: pointer;
+           transition: background 0.3s;
+           padding: 10px 20px;
+       }
+       .main-button:hover {
+           background: #1557b0;
+       }
+       input {
+           flex-grow: 1;
+           min-width: 200px;
+       }
+       .input-area {
+           display: flex;
+           gap: 10px;
+           margin-top: 10px;
+       }
+       @media (max-width: 600px) {
+           .controls {
+               flex-direction: column;
+           }
+           .input-area {
+               flex-direction: column;
+           }
+           input {
+               width: 100%;
+           }
+       }
+   </style>
+</head>
+<body>
+   <div class="container">
+       <div class="header">
+           <h1>English Practice with AI</h1>
+       </div>
+       
+       <div class="controls">
+           <select id="scenario" onchange="updateExamples()"></select>
+       </div>
+
+       <div class="stats">
+           <div>Level: <span id="level">1</span></div>
+           <div>New Words: <span id="words">0</span></div>
+       </div>
+
+       <div id="examples" class="examples">
+           <strong>Örnek Sorular:</strong>
+           <div id="examplePhrases"></div>
+       </div>
+       
+       <div class="voice-controls">
+           <button id="listenBtn" class="speak-button" title="Click to speak">🎤</button>
+           <button id="speakBtn" class="speak-button" title="Listen to the response">🔊</button>
+           <span id="pronunciationText" class="pronunciation"></span>
+       </div>
+
+       <div id="chat" class="chat"></div>
+       
+       <div class="input-area">
+           <input type="text" id="message" placeholder="İngilizce mesajınızı yazın..." onkeypress="if(event.key === 'Enter') send()">
+           <button onclick="send()" class="main-button">Gönder</button>
+       </div>
+   </div>
+
+   <script>
+       const synth = window.speechSynthesis;
+       let speaking = false;
+
+       function speak(text) {
+           if (speaking) {
+               synth.cancel();
+               speaking = false;
+               return;
+           }
+           const utterance = new SpeechSynthesisUtterance(text);
+           utterance.lang = 'en-US';
+           utterance.rate = 0.9;
+           speaking = true;
+           
+           utterance.onend = () => {
+               speaking = false;
+           };
+           
+           synth.speak(utterance);
+       }
+
+       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+       const recognition = new SpeechRecognition();
+       recognition.lang = 'en-US';
+       recognition.continuous = false;
+       recognition.interimResults = false;
+
+       recognition.onresult = (event) => {
+           const text = event.results[0][0].transcript;
+           document.getElementById('message').value = text;
+           document.getElementById('pronunciationText').textContent = 
+               `Confidence: ${Math.round(event.results[0][0].confidence * 100)}%`;
+       };
+
+       recognition.onend = () => {
+           document.getElementById('pronunciationText').textContent = '';
+           document.getElementById('listenBtn').style.background = '#4CAF50';
+       };
+
+       recognition.onerror = (event) => {
+           document.getElementById('pronunciationText').textContent = 'Error: ' + event.error;
+       };
+
+       document.getElementById('listenBtn').onclick = () => {
+           recognition.start();
+           document.getElementById('pronunciationText').textContent = 'Listening...';
+           document.getElementById('listenBtn').style.background = '#ff4444';
+       };
+
+       document.getElementById('speakBtn').onclick = () => {
+           const lastMessage = document.querySelector('.ai-message');
+           if (lastMessage) {
+               speak(lastMessage.textContent);
+           }
+       };
+
+       async function loadScenarios() {
+           const response = await fetch('/scenarios');
+           const scenarios = await response.json();
+           const select = document.getElementById('scenario');
+           
+           for (const [key, value] of Object.entries(scenarios)) {
+               const option = document.createElement('option');
+               option.value = key;
+               option.textContent = value.title;
+               select.appendChild(option);
+           }
+           
+           updateExamples();
+       }
+
+       async function updateExamples() {
+           const response = await fetch('/scenarios');
+           const scenarios = await response.json();
+           const scenarioKey = document.getElementById('scenario').value;
+           const examples = scenarios[scenarioKey].examples;
+           
+           const phrasesDiv = document.getElementById('examplePhrases');
+           phrasesDiv.innerHTML = '';
+           examples.forEach(example => {
+               const phrase = document.createElement('div');
+               phrase.className = 'example-phrase';
+               phrase.textContent = example;
+               phrase.onclick = () => useExample(example);
+               phrasesDiv.appendChild(phrase);
+           });
+       }
+
+       function useExample(example) {
+           document.getElementById('message').value = example;
+       }
+
+       function addMessage(text, type, isHTML = false) {
+           const chat = document.getElementById('chat');
+           const messageDiv = document.createElement('div');
+           messageDiv.className = `message ${type}-message`;
+           if (isHTML) {
+               messageDiv.innerHTML = text;
+           } else {
+               messageDiv.textContent = text;
+           }
+           
+           // Add click-to-speak functionality
+           messageDiv.addEventListener('click', (e) => {
+               const selection = window.getSelection().toString();
+               if (selection) {
+                   speak(selection);
+               }
+           });
+           
+           chat.appendChild(messageDiv);
+           chat.scrollTop = chat.scrollHeight;
+       }
+
+       async function send() {
+           const messageInput = document.getElementById('message');
+           const message = messageInput.value.trim();
+           if (!message) return;
+           
+           addMessage(message, 'user');
+           messageInput.value = '';
+
+           const scenario = document.getElementById('scenario').value;
+           
+           try {
+               const response = await fetch('/chat', {
+                   method: 'POST',
+                   headers: {
+                       'Content-Type': 'application/json'
+                   },
+                   body: JSON.stringify({ message, scenario })
+               });
+               const data = await response.json();
+               
+               addMessage(data.content, 'ai', true);
+               
+               document.getElementById('level').textContent = data.level;
+               document.getElementById('words').textContent = data.newWordsCount;
+           } catch (error) {
+               console.error('Error:', error);
+           }
+       }
+
+       window.onload = loadScenarios;
+   </script>
+</body>
+</html>
